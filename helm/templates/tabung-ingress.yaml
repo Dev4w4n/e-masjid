@@ -1,0 +1,75 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: internal-tabung-secure-ingress
+  namespace: "{{ .Values.global.env }}-{{ .Values.global.tenant }}"
+  labels:
+    tenant: {{ .Values.global.tenant }}
+    env: {{ .Values.global.env | quote }}
+  annotations: 
+    nginx.ingress.kubernetes.io/rewrite-target: /tabung
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: "{{ .Values.global.tenant }}.e-masjid.my"
+    http:
+      paths:
+      - pathType: ImplementationSpecific
+        path: /secure/tabung(/|$)(.*)
+        backend:
+          service:
+            name: tabung-api
+            port:
+              number: 8082
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: internal-tabung-types-secure-ingress
+  namespace: "{{ .Values.global.env }}-{{ .Values.global.tenant }}"
+  labels:
+    tenant: {{ .Values.global.tenant }}
+    env: {{ .Values.global.env | quote }}
+  annotations: 
+    nginx.ingress.kubernetes.io/rewrite-target: /tabung-types
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: "{{ .Values.global.tenant }}.e-masjid.my"
+    http:
+      paths:
+      - pathType: ImplementationSpecific
+        path: /secure/tabung-types(/|$)(.*)
+        backend:
+          service:
+            name: tabung-api
+            port:
+              number: 8082
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: internal-tabung-kutipan-secure-ingress
+  namespace: "{{ .Values.global.env }}-{{ .Values.global.tenant }}"
+  labels:
+    tenant: {{ .Values.global.tenant }}
+    env: {{ .Values.global.env | quote }}
+  annotations: 
+    nginx.ingress.kubernetes.io/rewrite-target: /kutipan/$2
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: "{{ .Values.global.tenant }}.e-masjid.my"
+    http:
+      paths:
+      - pathType: ImplementationSpecific
+        path: /secure/kutipan(/|$)(.*)
+        backend:
+          service:
+            name: tabung-api
+            port:
+              number: 8082

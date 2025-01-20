@@ -1,0 +1,84 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: tetapan-public-api
+  namespace: "{{ .Values.global.env }}-{{ .Values.global.tenant }}"
+  labels:
+    app: tetapan-public-api
+    tenant: {{ .Values.global.tenant }}
+    env: {{ .Values.global.env | quote }}
+spec:
+  selector:
+    app: tetapan-public-api
+    tenant: {{ .Values.global.tenant }}
+    env: {{ .Values.global.env | quote }}
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: {{ .Values.services.tetapanPublicApi.port }}
+      targetPort: {{ .Values.services.tetapanPublicApi.port }}
+      nodePort: {{ .Values.services.tetapanPublicApi.NodePort }}
+      
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tetapan-public-api
+  namespace: "{{ .Values.global.env }}-{{ .Values.global.tenant }}"
+  labels:
+    app: tetapan-public-api
+  labels:
+    tenant: {{ .Values.global.tenant }}
+    env: {{ .Values.global.env | quote }}
+spec:
+  selector:
+    matchLabels:
+      app: tetapan-public-api
+      tenant: {{ .Values.global.tenant }}
+      env: {{ .Values.global.env | quote }}
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: tetapan-public-api
+        tenant: {{ .Values.global.tenant }}
+        env: {{ .Values.global.env | quote }}
+    spec:
+      containers:
+        - name: tetapan-public-api
+          image: {{ .Values.services.tetapanPublicApi.image }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            {{- range .Values.services.tetapanPublicApi.env }}
+            - name: {{ .name | quote }}
+              value: {{ .value | quote }}
+            {{- end }}
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: "{{ .Values.global.env }}-{{ .Values.global.tenant }}-db-config"
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: "{{ .Values.global.env }}-{{ .Values.global.tenant }}-db-config"
+                  key: DB_PORT
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: "{{ .Values.global.env }}-{{ .Values.global.tenant }}-db-config"
+                  key: DB_NAME
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.global.env }}-{{ .Values.global.tenant }}-db-secret"
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.global.env }}-{{ .Values.global.tenant }}-db-secret"
+                  key: DB_PASSWORD
+          ports:
+            - containerPort: {{ .Values.services.tetapanPublicApi.port }}
+          args: ["./wait-for-it.sh", "saas-api:8080", "--", "./tetapan-public-api"]

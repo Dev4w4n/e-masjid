@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashboard
+  namespace: "{{ .Values.global.env }}-{{ .Values.global.tenant }}"
+  labels:
+    app: dashboard
+    tenant: {{ .Values.global.tenant }}
+    env: {{ .Values.global.env | quote }}
+spec:
+  selector:
+    app: dashboard
+    tenant: {{ .Values.global.tenant }}
+    env: {{ .Values.global.env | quote }}
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: {{ .Values.services.dashboard.port }}
+      targetPort: {{ .Values.services.dashboard.targetPort }}
+      nodePort: {{ .Values.services.dashboard.nodePort }}
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashboard
+  namespace: "{{ .Values.global.env }}-{{ .Values.global.tenant }}"
+  labels:
+    app: dashboard
+    tenant: {{ .Values.global.tenant }}
+    env: {{ .Values.global.env | quote }}
+spec:
+  selector:
+    matchLabels:
+      app: dashboard
+      tenant: {{ .Values.global.tenant }}
+      env: {{ .Values.global.env | quote }}
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: dashboard
+        tenant: {{ .Values.global.tenant }}
+        env: {{ .Values.global.env | quote }}
+    spec:
+      containers:
+        - name: dashboard
+          image: {{ .Values.services.dashboard.image }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            {{- range .Values.services.dashboard.env }}
+            - name: {{ .name | quote }}
+              value: {{ .value | quote }}
+            {{- end }}
+          ports:
+            - containerPort: {{ .Values.services.dashboard.containerPort }}

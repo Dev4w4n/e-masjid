@@ -1,0 +1,119 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: "{{ .Values.global.env }}-{{ .Values.global.tenant }}"
+  labels:
+    app: cadangan-api
+    tenant: {{ .Values.global.tenant }}
+    env: {{ .Values.global.env | quote }}
+spec:
+  ports:
+  - port: 5432
+    targetPort: 5432
+  clusterIP: None # Makes the service headless
+  selector:
+    app: postgres # Matches the label in the StatefulSet
+     
+---
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: postgres-pv 
+  namespace: "{{ .Values.global.env }}-{{ .Values.global.tenant }}"
+  labels:
+    app: cadangan-api
+    tenant: {{ .Values.global.tenant }}
+    env: {{ .Values.global.env | quote }}
+spec:
+  capacity:
+    storage: 100Mi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: postgres-storage
+  local:
+    path: {{ .Values.global.dbNodeMountPath }}
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - {{ .Values.global.dbNode }}
+                
+---
+
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: postgres-storage
+  namespace: "{{ .Values.global.env }}-{{ .Values.global.tenant }}"
+  labels:
+    app: cadangan-api
+    tenant: {{ .Values.global.tenant }}
+    env: {{ .Values.global.env | quote }}
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
+
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-stateful
+  namespace: "{{ .Values.global.env }}-{{ .Values.global.tenant }}"
+  labels:
+    app: cadangan-api
+    tenant: {{ .Values.global.tenant }}
+    env: {{ .Values.global.env | quote }}
+spec:
+  serviceName: "postgres"
+  replicas: 1 # by default is 1
+  selector:
+    matchLabels:
+      app: postgres # has to match .spec.template.metadata.labels
+  template:
+    metadata:
+      labels:
+        app: postgres # has to match .spec.selector.matchLabels
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: postgres
+        image: {{ .Values.services.postgres.image }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        env:
+          - name: POSTGRES_DB
+            valueFrom:
+              configMapKeyRef:
+                name: "{{ .Values.global.env }}-{{ .Values.global.tenant }}-db-config"
+                key: DB_NAME
+          - name: POSTGRES_USER
+            valueFrom:
+              secretKeyRef:
+                name: "{{ .Values.global.env }}-{{ .Values.global.tenant }}-db-secret"
+                key: DB_USER
+          - name: POSTGRES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: "{{ .Values.global.env }}-{{ .Values.global.tenant }}-db-secret"
+                key: DB_PASSWORD
+        ports:
+        - containerPort: 5432
+          name: postgres-data
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: "postgres-storage"
+      resources:
+        requests:
+          storage: 100Mi
